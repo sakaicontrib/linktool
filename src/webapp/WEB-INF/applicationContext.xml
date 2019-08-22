@@ -8,7 +8,7 @@
         class="org.sakaiproject.tool.rutgers.LinkToolEntityProducer"
 	init-method="init"
         destroy-method="destroy"
-        singleton="true">
+        >
     </bean>
 
 </beans>
