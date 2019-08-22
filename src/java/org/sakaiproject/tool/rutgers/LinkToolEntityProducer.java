@@ -41,8 +41,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import lombok.extern.slf4j.Slf4j;
+
 import org.sakaiproject.component.cover.ServerConfigurationService;
 import org.sakaiproject.entity.api.Entity;
 import org.sakaiproject.entity.cover.EntityManager;
@@ -82,10 +82,9 @@ import org.w3c.dom.NodeList;
  * configuration property. That's handled separately in site.xml
  *
  */
+@Slf4j
 public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer, Serializable {
 
-   protected final Log logger = LogFactory.getLog(getClass());
-   
    private static final String ARCHIVE_VERSION = "2.4"; // in case new features are added in future exports
    private static final String VERSION_ATTR = "version";
    private static final String NAME = "name";
@@ -99,19 +98,19 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
    public static final String ATTR_TOP_REFRESH = "sakai.vppa.top.refresh";
 
    public void init() {
-      logger.info("init()");
+      log.info("init()");
       
       try {
          EntityManager.registerEntityProducer(this, REFERENCE_ROOT);
       }
       catch (Exception e) {
-         logger.warn("Error registering Link Tool Entity Producer", e);
+         log.warn("Error registering Link Tool Entity Producer", e);
       }
 
       try {
 	  ComponentManager.loadComponent("org.sakaiproject.tool.rutgers.LinkToolEntityProducer", this);
       } catch (Exception e) {
-	  logger.warn("Error registering Link Tool Entity Producer with Spring. Linktool will work, but linktool tools won't be imported from site archives. This normally happens only if you redeploy linktool. Suggest restarting Sakai", e);
+	  log.warn("Error registering Link Tool Entity Producer with Spring. Linktool will work, but linktool tools won't be imported from site archives. This normally happens only if you redeploy linktool. Suggest restarting Sakai", e);
       }
 
    }
@@ -121,7 +120,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
     */
    public void destroy()
    {
-      logger.info("destroy()");
+      log.info("destroy()");
    }
 
     // linktool allows new tools to be created that use linktool. They will have
@@ -249,7 +248,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
       }
       catch (Exception any)
       {
-         logger.warn("archive: exception archiving service: " + serviceName());
+         log.warn("archive: exception archiving service: " + serviceName());
       }
 
       stack.pop();
@@ -325,7 +324,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
    public String merge(String siteId, Element root, String archivePath, String fromSiteId, Map attachmentNames, Map userIdTrans,
          Set userListAllowImport)
    {
-      logger.debug("trying to merge linktool");
+      log.debug("trying to merge linktool");
       // buffer for the results log
       StringBuilder results = new StringBuilder();
 
@@ -419,13 +418,13 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
          }
          catch (DOMException e)
          {
-            logger.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
             results.append("merging " + getLabel()
                   + " failed during xml parsing.\n");
          }
          catch (Exception e)
          {
-            logger.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
             results.append("merging " + getLabel() + " failed.\n");
          }
       }
@@ -461,7 +460,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
    
 	public void transferCopyEntities(String fromContext, String toContext, List ids)
 	{
-	        logger.debug("linktool transferCopyEntities");
+	        log.debug("linktool transferCopyEntities");
 		try
 		{				
 			// retrieve all of the web content tools to copy
@@ -523,7 +522,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
 
 		catch (Exception any)
 		{
-			logger.warn("transferCopyEntities(): exception in handling webcontent data: ", any);
+			log.warn("transferCopyEntities(): exception in handling webcontent data: ", any);
 		}
 
 	}
@@ -580,7 +579,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
 		}
 		catch (Exception e)
 		{
-			logger.info("WebContent transferCopyEntities Error" + e);
+			log.info("WebContent transferCopyEntities Error" + e);
 		}
 	}
 

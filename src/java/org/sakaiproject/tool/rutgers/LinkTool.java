@@ -49,13 +49,14 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import lombok.extern.slf4j.Slf4j;
 
-import org.sakaiproject.authz.cover.AuthzGroupService;
-import org.sakaiproject.authz.cover.SecurityService;
-import org.sakaiproject.component.cover.ServerConfigurationService;
+import org.apache.commons.lang.StringEscapeUtils;
+
+import org.sakaiproject.authz.api.AuthzGroupService;
+import org.sakaiproject.authz.api.SecurityService;
+import org.sakaiproject.component.api.ServerConfigurationService;
+import org.sakaiproject.component.cover.ComponentManager;
 import org.sakaiproject.site.api.Site;
 import org.sakaiproject.site.api.SitePage;
 import org.sakaiproject.site.api.ToolConfiguration;
@@ -65,7 +66,8 @@ import org.sakaiproject.tool.api.Session;
 import org.sakaiproject.tool.cover.SessionManager;
 import org.sakaiproject.tool.cover.ToolManager;
 import org.sakaiproject.user.api.User;
-import org.sakaiproject.user.cover.UserDirectoryService;
+import org.sakaiproject.user.api.UserDirectoryService;
+import org.sakaiproject.util.api.FormattedText;
 import org.sakaiproject.util.Validator;
 import org.sakaiproject.util.Web;
 
@@ -78,6 +80,7 @@ import org.sakaiproject.util.Web;
  * @version $Revision: $
  */
 @SuppressWarnings({ "serial", "deprecation" })
+@Slf4j
 public class LinkTool extends HttpServlet
 {
    private static final String UTF8 = "UTF-8";
@@ -95,16 +98,19 @@ public class LinkTool extends HttpServlet
    private static final String privkeyname = "sakai.rutgers.linktool.privkey";
    private static final String saltname = "sakai.rutgers.linktool.salt";
    
-   /** Our log (commons). */
-   private static Log M_log = LogFactory.getLog(LinkTool.class);
-   
    private SecretKey secretKey = null;
    private SecretKey salt = null;
    private String ourUrl = null;
    
    private Set<String> illegalParams;
    private Pattern legalKeys;
-   
+
+   private AuthzGroupService authzGroupService = (AuthzGroupService) ComponentManager.get("org.sakaiproject.authz.api.AuthzGroupService");;
+   private FormattedText formattedText = (FormattedText) ComponentManager.get(org.sakaiproject.util.api.FormattedText.class);
+   private SecurityService securityService = (SecurityService) ComponentManager.get("org.sakaiproject.authz.api.SecurityService");
+   private ServerConfigurationService serverConfigurationService = (ServerConfigurationService) ComponentManager.get(org.sakaiproject.component.api.ServerConfigurationService.class);
+   private UserDirectoryService userDirectoryService = (UserDirectoryService) ComponentManager.get(org.sakaiproject.user.api.UserDirectoryService.class);
+
    /**
     * Access the Servlet's information display.
     * 
@@ -126,7 +132,7 @@ public class LinkTool extends HttpServlet
    {
       super.init(config);
 
-      String homedir = ServerConfigurationService.getString("linktool.home", ServerConfigurationService.getSakaiHomePath());
+      String homedir = serverConfigurationService.getString("linktool.home", serverConfigurationService.getSakaiHomePath());
       if (homedir == null)
          homedir = "/etc/";
       if (!homedir.endsWith("/"))
@@ -154,10 +160,10 @@ public class LinkTool extends HttpServlet
       
       salt = readSecretKey(homedir + saltname, "HmacSHA1");
       
-      ourUrl = ServerConfigurationService.getString("sakai.rutgers.linktool.serverUrl");
+      ourUrl = serverConfigurationService.getString("sakai.rutgers.linktool.serverUrl");
       // System.out.println("linktool url " + ourUrl);
       if (ourUrl == null || "".equals(ourUrl))
-         ourUrl = ServerConfigurationService.getServerUrl();
+         ourUrl = serverConfigurationService.getServerUrl();
       // System.out.println("linktool url " + ourUrl);
       if (ourUrl == null || "".equals(ourUrl))
          ourUrl = "http://127.0.0.1:8080";
@@ -178,7 +184,7 @@ public class LinkTool extends HttpServlet
       
       legalKeys = Pattern.compile("^[a-zA-Z0-9]+$");
       
-      M_log.info("init(): home dir: " + homedir);
+      log.info("init(): home dir: " + homedir);
    }
    
    /**
@@ -186,7 +192,7 @@ public class LinkTool extends HttpServlet
     */
    public void destroy()
    {
-      M_log.info("destroy()");
+      log.info("destroy()");
       
       super.destroy();
    }
@@ -225,7 +231,7 @@ public class LinkTool extends HttpServlet
       PrintWriter out = res.getWriter();
       
       if (secretKey == null || salt == null) {
-         M_log.error("Linktool missing secret key or salt");
+         log.error("Linktool missing secret key or salt");
          writeErrorPage(req, out, null, "Linktool is not configured correctly", null);
          return;      
       }
@@ -256,13 +262,13 @@ public class LinkTool extends HttpServlet
       // we can always get the userid from the session
       Session s = SessionManager.getCurrentSession();
       if (s != null && s.getUserId() != null) {
-         M_log.debug("got session " + s.getId());
+         log.debug("got session " + s.getId());
          userid = s.getUserId();
          euid = s.getUserEid();
          sessionid = s.getId();
       } else {
          // No valid user session
-         User anon = UserDirectoryService.getAnonymousUser();
+         User anon = userDirectoryService.getAnonymousUser();
          userid = anon.getId();
          euid = anon.getEid();
          isAnon = true;
@@ -288,7 +294,7 @@ public class LinkTool extends HttpServlet
          String urlProp = config.getProperty("urlProp", null);
          
          if (urlProp != null) {
-            url = ServerConfigurationService.getString(urlProp);
+            url = serverConfigurationService.getString(urlProp);
          }
       }
       
@@ -316,7 +322,7 @@ public class LinkTool extends HttpServlet
       }
       
       if (realmId != null && userid != null && !isAnon) {
-    	  rolename = AuthzGroupService.getUserRole(userid, realmId);
+    	  rolename = authzGroupService.getUserRole(userid, realmId);
       }
       
       // Check for .auth or .anon role
@@ -358,7 +364,7 @@ public class LinkTool extends HttpServlet
                key = (String)entry.getKey();
                value = ((String [])entry.getValue())[0];
             } catch (Exception e) { 
-               M_log.debug("Exception getting key/value", e);
+               log.debug("Exception getting key/value", e);
             }
             if (!illegalParams.contains(key.toLowerCase()) && legalKeys.matcher(key).matches())
                command.append("&" + key + "=" + URLEncoder.encode(value, UTF8));
@@ -390,14 +396,14 @@ public class LinkTool extends HttpServlet
             
             signature = sign(command.toString());
             url = url + "?" + command + "&sign=" + signature;
-            bodyonload.append("window.location = '" + Validator.escapeJsQuoted(Validator.escapeHtml(url)) + "';");
+            bodyonload.append("window.location = '" + formattedText.escapeJsQuoted(Validator.escapeHtml(url)) + "';");
          } catch (Exception e) {
-            M_log.debug("Exception signing command", e);
+            log.debug("Exception signing command", e);
          }
          
       } else {
          // Cannot generate a correctly signed URL for some reason, so just use the URL as is
-         M_log.debug("Cannot generate signed URL for remote application: url=" + url + " userid=" + userid + " siteid=" + siteid + "rolename=" + rolename + " sessionid=" + sessionid);
+         log.debug("Cannot generate signed URL for remote application: url=" + url + " userid=" + userid + " siteid=" + siteid + "rolename=" + rolename + " sessionid=" + sessionid);
          
       }
       
@@ -553,7 +559,7 @@ public class LinkTool extends HttpServlet
       //   userid = s.getUserId();
       //}
       
-      boolean isprived = SecurityService.getInstance().isSuperUser();
+      boolean isprived = securityService.isSuperUser();
       //       System.out.println("user " + userid + "prived " + isprived);
       if (!isprived) {
          out.println("<p>You can request an object that will generate a session logged in with your userid. For applications that deal with sites that you own, such an object should be sufficient for most purposes.");
@@ -573,7 +579,7 @@ public class LinkTool extends HttpServlet
          out.println("</form>");
       }
       
-      //       if (SecurityService.getInstance().isSuperUser())
+      //       if (securityService.isSuperUser())
       
       out.println("<h3>Exit</h3><form action=\"" + oururl + "?panel=Main\" method=\"get\"><p class=\"act\"><input type=\"submit\" value=\"Exit Setup\"/></p></form>");
       out.println("</div>");
@@ -720,7 +726,7 @@ public class LinkTool extends HttpServlet
                page.setTitle(safetrim(req.getParameter("title")));
                SiteService.save(site);
             } catch (Exception e) {
-               M_log.debug("Exception setting page title", e);
+               log.debug("Exception setting page title", e);
             }
          }
          
@@ -795,7 +801,7 @@ public class LinkTool extends HttpServlet
          return;
       }
       
-      boolean isprived = SecurityService.getInstance().isSuperUser();
+      boolean isprived = securityService.isSuperUser();
       
       if (isprived) {
          String requser = safetrim(req.getParameter("user"));
@@ -819,7 +825,7 @@ public class LinkTool extends HttpServlet
             signature = sign(command);
             object = command + "&sign=" + signature;
          } catch (Exception e) {
-            M_log.debug("Cannot sign object ", e);
+            log.debug("Cannot sign object ", e);
          }
       }
       
@@ -877,7 +883,7 @@ public class LinkTool extends HttpServlet
          file.read(bytes);
          privkey = new SecretKeySpec(bytes, alg);
       } catch (Exception ignore) {
-         M_log.error("Unable to read key from " + filename);
+         log.error("Unable to read key from " + filename);
       } finally {
          if (file != null) {
             try {
@@ -943,13 +949,13 @@ public class LinkTool extends HttpServlet
       
       try {
          /* Generate key. */
-         M_log.info("Generating new key in " + dirname + privkeyname);
+         log.info("Generating new key in " + dirname + privkeyname);
          SecretKey key = KeyGenerator.getInstance("Blowfish").generateKey();
          
          /* Write private key to file. */
          writeKey(key, dirname + privkeyname);
       } catch (Exception e) {
-         M_log.debug("Error generating key", e);
+         log.debug("Error generating key", e);
       }
       
    }
@@ -966,10 +972,10 @@ public class LinkTool extends HttpServlet
          file.write(key.getEncoded());
       }
       catch (FileNotFoundException e) {
-         M_log.error("Unable to write new key to " + filename);
+         log.error("Unable to write new key to " + filename);
       }
       catch (IOException e) {
-         M_log.error("Unable to write new key to " + filename);
+         log.error("Unable to write new key to " + filename);
       } finally {
          if (file != null) {
             try {
@@ -998,7 +1004,7 @@ public class LinkTool extends HttpServlet
          SecretKey key = keyGen.generateKey();
          writeKey(key, dirname + saltname);
       } catch (Exception e) {
-         M_log.debug("Error generating salt", e);
+         log.debug("Error generating salt", e);
       }
    }
    
@@ -1016,17 +1022,17 @@ public class LinkTool extends HttpServlet
          // Encode bytes to base64 to get a string
          return byteArray2Hex(enc);
       } catch (javax.crypto.BadPaddingException e) {
-         M_log.warn("linktool encrypt bad padding");
+         log.warn("linktool encrypt bad padding");
       } catch (javax.crypto.IllegalBlockSizeException e) {
-         M_log.warn("linktool encrypt illegal block size");
+         log.warn("linktool encrypt illegal block size");
       } catch (java.security.NoSuchAlgorithmException e) {
-         M_log.warn("linktool encrypt no such algorithm");
+         log.warn("linktool encrypt no such algorithm");
       } catch (java.security.InvalidKeyException e) {
-         M_log.warn("linktool encrypt invalid key");
+         log.warn("linktool encrypt invalid key");
       } catch (javax.crypto.NoSuchPaddingException e) {
-         M_log.warn("linktool encrypt no such padding");
+         log.warn("linktool encrypt no such padding");
       } catch (java.io.UnsupportedEncodingException e) {
-         M_log.warn("linktool encrypt unsupported encoding");
+         log.warn("linktool encrypt unsupported encoding");
       } 
       return null;
    }
