@@ -458,7 +458,7 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
       return true;
    }
    
-	public void transferCopyEntities(String fromContext, String toContext, List ids)
+	public Map<String, String> transferCopyEntities(String fromContext, String toContext, List<String> ids, List<String> transferOptions)
 	{
 	        log.debug("linktool transferCopyEntities");
 		try
@@ -525,9 +525,10 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
 			log.warn("transferCopyEntities(): exception in handling webcontent data: ", any);
 		}
 
+		return null;
 	}
 
-	public void transferCopyEntities(String fromContext, String toContext, List ids, boolean cleanup)
+	public Map<String, String> transferCopyEntities(String fromContext, String toContext, List<String> ids, List<String> transferOptions, boolean cleanup)
 	{	
 		try
 		{
@@ -575,13 +576,14 @@ public class LinkToolEntityProducer implements EntityProducer, EntityTransferrer
 				}
 				 
 			} 
-			transferCopyEntities(fromContext, toContext, ids);
+			return transferCopyEntities(fromContext, toContext, ids, transferOptions);
 		}
 		catch (Exception e)
 		{
 			log.info("WebContent transferCopyEntities Error" + e);
 		}
-	}
 
+		return null;
+	}
 
 }
