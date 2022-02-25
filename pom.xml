@@ -4,13 +4,13 @@
   <parent>
     <artifactId>master</artifactId>
     <groupId>org.sakaiproject</groupId>
-    <version>20-SNAPSHOT</version>
+    <version>21-SNAPSHOT</version>
     <relativePath>../master/pom.xml</relativePath>
   </parent>
   <name>Sakai Link Tool Project</name>
   <groupId>org.sakaiproject</groupId>
   <artifactId>sakai-rutgers-linktool</artifactId>
-  <version>20-SNAPSHOT</version>
+  <version>21-SNAPSHOT</version>
   <organization>
     <name>Rutgers University</name>
     <url>http://sakai.rutgers.edu/</url>
@@ -30,7 +30,7 @@
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>javax.servlet-api</artifactId>
-      <version>3.0.1</version>
+      <version>4.0.1</version>
     </dependency>
     <dependency>
       <groupId>org.sakaiproject.kernel</groupId>
